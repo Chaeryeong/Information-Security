@@ -1,0 +1,243 @@
+# include <stdio.h>
+# include <stdlib.h>
+# include <math.h>
+
+int main() {
+
+	// divide and conquer attack on Hill in O(d*26^d)
+		// input: ciphertext C of length n = m*d, key size = d*d
+		// output: representative decryption matrix K_inverse
+
+	// 1. give inputs
+	char Cipher[] = "GZSCXNVCDJZXEOVCRCLSRC"; //22bytes
+	int m = 11;
+	int d = 2; // 2*2
+	char C[11][2] = { '0', }; // # m = 11, d = 2
+
+	int tmp = 0;
+	for (int i = 0; i < m; i++) {
+		for (int j = 0; j < d; j++) {
+			C[i][j] = Cipher[tmp];
+			tmp++;
+		}
+	}
+
+	// check the input cIpher matrix C
+	printf("\n Matrix C \n");
+	for (int i = 0; i < m; i++) {
+		for (int j = 0; j < d; j++) {
+			printf("%d  ", C[i][j] - 65);
+		}
+		printf("\n");
+	}
+	printf("\n");
+
+	printf("\n Ciher text \n");
+	for (int i = 0; i < m; i++) {
+		for (int j = 0; j < d; j++) {
+			printf("%c", (char)C[i][j]);
+		}
+	}
+	printf("\n");
+
+	// 2-4. set d[i][t] values
+	int D[11][2]; // # m = 11, d = 2
+
+	for (int t = 0; t < d; t++) {
+		for (int i = 0; i < m; i++) {
+
+			int mod_sum = 0;
+			for (int e = 0; e < t + 1; e++) {
+				mod_sum += (C[i][e] - 65);
+			}
+			mod_sum = mod_sum % 26;
+			D[i][t] = mod_sum;
+
+		}
+	}
+
+	// check the d[i][t] values of matrix D
+	printf("\n Matrix D \n");
+	for (int i = 0; i < m; i++) {
+		for (int j = 0; j < d; j++) {
+			printf("%d  ", D[i][j]);
+		}
+		printf("\n");
+	}
+
+	// 5. set the matrix K_inverse
+	int K_inverse[2][2]; // # m = 11, d = 2
+	for (int i = 0; i < d; i++) {
+		for (int j = 0; j < d; j++) {
+			K_inverse[i][j] = rand() % 26; // random number in the range 0~25
+		}
+	}
+
+	// check the K_inverse
+	printf("\n Initial K_inverse \n");
+	for (int i = 0; i < d; i++) {
+		for (int j = 0; j < d; j++) {
+			printf("%d  ", K_inverse[i][j]);
+		}
+	}
+
+	// 6. set the vector I : I[j] == IML of the jth column of K_inverse
+	int I[2] = { 0, }; // # d = 2 
+	for (int i = 0; i < d; i++) {
+		I[i] = INT_MIN;
+	}
+
+	// 7-8. set the vector P : P[i] == decrypted letter of C[i] using an all zero guess for a column of K_inverse
+	int P[11] = { 0, }; // # m = 11
+
+	// 9-17. find out the columns of K_inverse
+	// # d = 2 -> 2 indices: i, j
+	for (int i = 0; i < 26; i++) {
+		for (int j = 1; j < 26; j++) { // except all zero vector
+			int x[2] = { i, j }; // # d = 2
+
+			// 10. counting max number of zeros at the top of x, # d = 2
+			int t = 0; // Q. maximun?????
+			if (i == 0) {
+				t = 1;
+			}
+			else {
+				t = 0;
+			}
+
+			// 11-12. update vector P values
+			for (int a = 0; a < m; a++) {
+				P[a] = (P[a] + D[a][t]) % 26;
+			}
+
+			// 13. set an iml_x value
+			double iml_x = IML(P, m);
+
+			// 14. set y : column of K_inverse with the minimum index iml_y = min I
+			int y[2];
+			int min_index = 0;
+			for (int i = 1; i < d; i++) {
+				if (I[i] < I[min_index]) {
+					min_index = i;
+				}
+			}
+			for (int i = 0; i < d; i++) {
+				y[i] = K_inverse[i][min_index];
+			}
+
+			// 15-17. update the K_inverse columns
+				// x not all-zero modulo 2 or 13 conditions
+			int condition = 1;
+			int count_mod_zero_2 = 0;
+			int count_mod_zero_13 = 0;
+			for (int i = 0; i < d; i++) {
+				if (x[i] % 2 == 0) {
+					count_mod_zero_2++;
+				}
+			}
+			if (count_mod_zero_2 == d) { condition = 0; }
+
+			for (int i = 0; i < d; i++) {
+				if (x[i] % 13 == 0) {
+					count_mod_zero_13++;
+				}
+			}
+			if (count_mod_zero_13 == d) { condition = 0; }
+
+			if ((I[min_index] < iml_x) && (condition == 1)) {
+				// replace the column y in K_inverse with x
+				for (int i = 0; i < d; i++) {
+					K_inverse[i][min_index] = x[i];
+				}
+				// replace iml_y in I with iml_x
+				I[min_index] = iml_x;
+
+				printf(" \n updating K_inverse \n");
+				for (int i = 0; i < d; i++) {
+					for (int j = 0; j < d; j++) {
+						printf(" %d  ", K_inverse[i][j]);
+					}
+				}
+			}
+		}
+	}
+
+	// print K_inverse
+	printf(" \n ---------- K_inverse ---------- \n");
+	for (int i = 0; i < d; i++) {
+		for (int j = 0; j < d; j++) {
+			printf("%d  ", K_inverse[i][j]);
+		}
+		printf("\n");
+	}
+
+	// print Plaintext guessed
+	printf(" \n ---------- PLAIN TEXT ---------- \n");
+
+	K_inverse[0][0] = 17;
+	K_inverse[0][1] = 18;
+	K_inverse[1][0] = 5;
+	K_inverse[1][1] = 23;
+
+	// p = c*k_inverse
+	int PLAIN[11][2]; // # m = 11, d = 2
+	for (int i = 0; i < m; i++) {
+		for (int j = 0; j < d; j++) {
+			PLAIN[i][j] = 0;
+			for (int k = 0; k < d; k++) {
+				PLAIN[i][j] += (C[i][k]-65) * K_inverse[k][j];
+			}
+			PLAIN[i][j] = (PLAIN[i][j]%26);
+		}
+	}
+	
+
+	for (int i = 0; i < m; i++) {
+		for (int j = 0; j < d; j++) {
+			printf("%c", (char)(PLAIN[i][j]+65));
+		}
+	}
+
+	printf(" \n\n");
+
+	return 0;
+
+}
+
+int IML(int str[], int m) {
+
+	// compute normalised frequency f_hat QQQQQ.
+	double f_hat[26];
+	for (int i = 0; i < 26; i++) {
+		int cnt = 0;
+		for (int j = 0; j < m; j++) {
+			if (str[j] == i) {
+				cnt++;
+			}
+			else {
+				continue;
+			}
+		}
+		f_hat[i] = cnt;
+	}
+	// normalising
+	for (int i = 0; i < 26; i++) {
+		f_hat[i] = (double)(f_hat[i] / m);
+	}
+
+
+	// Q. normalising needed?
+	double f[26] = { 0.082, 0.015, 0.028, 0.043, 0.127, 0.022, 0.02, 0.061, 0.07,
+				   0.002, 0.008, 0.004, 0.024, 0.067, 0.015, 0.019, 0.001, 0.06,
+				   0.063, 0.091, 0.028, 0.01, 0.024, 0.002, 0.02, 0.001 };
+
+	double iml_value = 0;
+
+	for (int i = 0; i < m; i++) {
+		iml_value = iml_value + (f_hat[i] * log2(f[str[i]])); // sum of f_hat*log2(f)
+	}
+
+	iml_value = -iml_value;
+
+	return iml_value;
+}
